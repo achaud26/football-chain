@@ -1,0 +1,9 @@
+# Raw downloads used to build the player book. The game ships the finished book in js/roster.js.
+data/hist-rosters/
+data/players.csv
+data/teams.csv
+data/roster_2024.csv
+data/rosters-release.json
+data/career-cache.json
+espn-*.json
+scripts/peek-*.js
