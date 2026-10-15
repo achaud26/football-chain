@@ -3,6 +3,20 @@
   const app = document.getElementById("app");
   const players = book.players;
   const categories = book.categories;
+  const boards = categories.map((_, index) =>
+    players
+      .filter((player) => player.stats[index] > 0)
+      .sort((a, b) => b.stats[index] - a.stats[index] || a.name.localeCompare(b.name))
+      .map((player, place) => ({
+        id: player.id,
+        name: player.name,
+        pos: player.pos,
+        value: player.stats[index],
+        rank: place + 1,
+      }))
+  );
+  const atRank = boards.map((board) => new Map(board.map((row) => [row.rank, row])));
+  const placeOf = boards.map((board) => new Map(board.map((row) => [row.id, row])));
 
   const state = {
     screen: "home",
@@ -41,6 +55,10 @@
     return rounded.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
   }
 
+  function statName(index) {
+    return categories[index].label.replace(/^Career /, "");
+  }
+
   function years(player) {
     if (!player.first) return player.pos;
     if (player.first === player.last) return player.pos + " · " + player.first;
@@ -76,9 +94,9 @@
       order[swap] = hold;
     }
     return order.slice(0, 3).map((category) => {
-      const pool = players.filter((player) => player.stats[category] > 0);
-      const secret = pool[Math.floor(Math.random() * pool.length)];
-      return { category, target: secret.stats[category], secret: secret.id };
+      const depth = Math.min(boards[category].length, 120);
+      const target = 1 + Math.floor(Math.random() * depth);
+      return { category, target };
     });
   }
 
@@ -124,16 +142,16 @@
       nav("golf") +
       '<div class="pin" aria-hidden="true"></div>' +
       "<h1>GOLF</h1>" +
-      '<p class="lede">Three holes. Each one gives you a career stat and a number. Name the NFL player whose total is closest. The difference is your strokes, and a perfect guess is 0. Lowest score wins.</p>' +
+      '<p class="lede">Three holes. Each one is an all-time list and a rank, like No. 84 in passing yards. Name the player closest to that spot. If yours is No. 79, that is 5 strokes. Lowest total wins.</p>' +
       '<div class="mode-row">' +
       '<button class="btn primary" id="solo">Play a round</button>' +
       '<button class="btn" id="duel">Two players</button>' +
       "</div>" +
       '<section class="panel">' +
       "<ol class=\"steps\">" +
-      "<li><strong>01 · The hole</strong><p>A stat appears, like career receiving yards, with a target number.</p></li>" +
-      "<li><strong>02 · The shot</strong><p>Name a player. Antonio Brown against a target of 24 would cost you the whole gap between his yards and 24.</p></li>" +
-      "<li><strong>03 · The card</strong><p>Add the three differences. Like golf, the lowest total wins.</p></li>" +
+      "<li><strong>01 · The hole</strong><p>You get a stat and a rank. No. 84 means the 84th player all time in that category.</p></li>" +
+      "<li><strong>02 · The shot</strong><p>Name who you think is closest. Five spots away costs 5 strokes. The exact player is 0.</p></li>" +
+      "<li><strong>03 · The list</strong><p>Your rank appears, then the real answer and the names around him, the shots that would have stayed close.</p></li>" +
       "</ol>" +
       '<p class="fine">' +
       players.length +
@@ -158,7 +176,7 @@
           '<label class="field" style="flex:1"><span>Player 1</span><input id="n1" class="text-input" maxlength="18" value="Player 1"></label>' +
           '<label class="field" style="flex:1"><span>Player 2</span><input id="n2" class="text-input" maxlength="18" value="Player 2"></label></div>' +
           '<p class="hole-copy">You both play the same three holes. Scores stay hidden until you have each taken the shot.</p>'
-        : '<p class="hole-copy">Chase a low number. Zero on a hole is a hole in one.</p>') +
+        : '<p class="hole-copy">Name the player at that rank. Zero strokes is a hole in one.</p>') +
       '<div class="setup-actions"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="start">Start the round</button></div>' +
       "</main>";
     document.getElementById("back").onclick = showHome;
@@ -183,7 +201,6 @@
 
   function showHole() {
     const hole = currentHole();
-    const category = categories[hole.category];
     const guessing = state.phase === "guess";
     const seat = state.names.length === 1 ? 0 : state.turn;
     app.innerHTML =
@@ -193,9 +210,9 @@
       '<button class="btn ghost" id="menu">Menu</button>' +
       "</div>" +
       '<p class="eyebrow">Hole ' + (state.hole + 1) + " of 3" + (state.names.length > 1 && guessing ? " · " + esc(state.names[seat]) : "") + "</p>" +
-      "<h2 class=\"display\" style=\"font-size:clamp(36px,6vw,64px)\">" + esc(category.label) + "</h2>" +
-      '<p class="target-num">' + formatNum(hole.target) + "</p>" +
-      '<p class="hole-copy">Name a player whose ' + esc(category.label.toLowerCase()) + " is as close to " + formatNum(hole.target) + " as you can get.</p>" +
+      "<h2 class=\"display stat-title\">" + esc(statName(hole.category)) + "</h2>" +
+      '<p class="target-num">#' + hole.target + "</p>" +
+      '<p class="hole-copy">Name the player closest to No. ' + hole.target + " all time. The gap between ranks is your strokes.</p>" +
       (guessing
         ? '<form class="play-row" id="shot">' +
           '<div class="search"><input id="guess" autocomplete="off" placeholder="Player name" value="' + esc(state.query) + '">' +
@@ -204,7 +221,7 @@
           '<p class="miss" id="miss">' + esc(state.error) + "</p>"
         : revealHtml()) +
       '<section class="panel">' + cardHtml() + "</section>" +
-      '<p class="fine">' + esc(book.span) + " Closer is better. The lowest total wins.</p>" +
+      '<p class="fine">' + esc(book.span) + " No. 1 is the leader. Closest rank wins the hole.</p>" +
       "</main>";
     document.getElementById("menu").onclick = showHome;
     if (!guessing) {
@@ -274,8 +291,14 @@
   function commit(player) {
     if (!player) return;
     const hole = currentHole();
-    const actual = player.stats[hole.category];
-    const shot = { id: player.id, name: player.name, actual, strokes: Math.abs(actual - hole.target) };
+    const row = placeOf[hole.category].get(player.id);
+    if (!row) {
+      state.error = player.name + " isn't on the " + statName(hole.category) + " list.";
+      const miss = document.getElementById("miss");
+      if (miss) miss.textContent = state.error;
+      return;
+    }
+    const shot = { id: player.id, name: player.name, rank: row.rank, value: row.value, strokes: Math.abs(row.rank - hole.target) };
     const seat = state.names.length === 1 ? 0 : state.turn;
     state.shots[seat][state.hole] = shot;
     state.query = "";
@@ -289,28 +312,61 @@
     showHole();
   }
 
-  function playerById(id) {
-    return players.find((player) => player.id === id);
-  }
-
-  function shotLine(seatName, shot, hole) {
-    const category = categories[hole.category].label.toLowerCase();
-    const who = state.names.length > 1 ? "<strong>" + esc(seatName) + ".</strong> " + esc(shot.name) : "<strong>" + esc(shot.name) + "</strong>";
-    if (shot.strokes === 0) return '<p class="ace">' + who + " has exactly " + formatNum(shot.actual) + ". Hole in one.</p>";
-    return "<p>" + who + " has " + formatNum(shot.actual) + " " + esc(category) + ". <strong>" + formatNum(shot.strokes) + " strokes.</strong></p>";
+  function band(center, span, length) {
+    const ranks = [];
+    for (let rank = Math.max(1, center - span); rank <= Math.min(length, center + span); rank++) ranks.push(rank);
+    return ranks;
   }
 
   function revealHtml() {
     const hole = currentHole();
-    const secret = playerById(hole.secret);
-    const lines = state.names.map((name, seat) => shotLine(name, state.shots[seat][state.hole], hole));
-    const guessed = new Set(state.shots.map((row) => row[state.hole] && row[state.hole].id));
-    const flag = guessed.has(secret.id)
-      ? ""
-      : '<p>The flag was planted on ' + esc(secret.name) + ", who has exactly " + formatNum(hole.target) + ".</p>";
+    const board = boards[hole.category];
+    const shots = state.names.map((name, seat) => ({ name, shot: state.shots[seat][state.hole] }));
+    const wanted = new Set(band(hole.target, 4, board.length));
+    for (const item of shots) for (const rank of band(item.shot.rank, 1, board.length)) wanted.add(rank);
+    const ordered = [...wanted].sort((a, b) => a - b);
+    const chips = shots
+      .map((item) => {
+        const label = state.names.length > 1 ? esc(item.name) + ". " : "";
+        if (item.shot.strokes === 0) {
+          return '<p class="call ace">' + label + "<strong>" + esc(item.shot.name) + "</strong> is No. " + item.shot.rank + ". Hole in one.</p>";
+        }
+        return (
+          '<p class="call">' + label + "<strong>" + esc(item.shot.name) + "</strong> is No. " +
+          formatNum(item.shot.rank) + ". <strong>" + formatNum(item.shot.strokes) + " strokes.</strong></p>"
+        );
+      })
+      .join("");
+    let delay = 180;
+    let previous = 0;
+    const rows = ordered.map((rank) => {
+      let gap = "";
+      if (previous && rank > previous + 1) {
+        gap = '<li class="gap" style="animation-delay:' + delay + 'ms">···</li>';
+        delay += 50;
+      }
+      previous = rank;
+      const row = atRank[hole.category].get(rank);
+      const mine = shots.filter((item) => item.shot.rank === rank);
+      const classes = ["row"];
+      if (rank === hole.target) classes.push("flag");
+      if (mine.length) classes.push("you");
+      const notes = [];
+      if (rank === hole.target) notes.push("The answer");
+      for (const item of mine) notes.push((state.names.length > 1 ? item.name : "You") + " · " + formatNum(item.shot.strokes));
+      const html =
+        '<li class="' + classes.join(" ") + '" style="animation-delay:' + delay + 'ms">' +
+        '<span class="rk">' + rank + "</span>" +
+        '<span class="nm"><b>' + esc(row.name) + "</b><small>" + esc(row.pos) + (notes.length ? " · " + esc(notes.join(" · ")) : "") + "</small></span>" +
+        '<span class="st">' + formatNum(row.value) + "</span></li>";
+      delay += 65;
+      return gap + html;
+    });
     const last = state.hole === 2;
     return (
-      '<div class="reveal">' + lines.join("") + flag +
+      '<div class="reveal">' + chips +
+      '<p class="board-label">Around No. ' + hole.target + "</p>" +
+      '<ol class="board">' + rows.join("") + "</ol>" +
       '<div class="setup-actions"><button class="btn primary" id="next">' + (last ? "See the card" : "Next hole") + "</button></div></div>"
     );
   }

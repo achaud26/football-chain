@@ -684,6 +684,86 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 .ace { color: var(--mint); font-weight: 700; }
 
+.stat-title {
+  font-size: clamp(36px, 6vw, 64px);
+  text-transform: uppercase;
+}
+
+.call { animation: spawn 0.4s ease both; }
+
+.board-label {
+  margin: 14px 0 0;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-2);
+}
+
+.board {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.board li {
+  animation: spawn 0.45s ease both;
+}
+
+.board .row {
+  display: grid;
+  grid-template-columns: 58px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+}
+
+.board .rk {
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--gold-2);
+}
+
+.board .nm b { display: block; font-size: 16px; }
+
+.board .nm small { color: var(--muted); }
+
+.board .st {
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.board .row.flag {
+  background: rgba(232, 185, 49, 0.16);
+  border-color: var(--gold);
+}
+
+.board .row.you {
+  border-color: var(--mint);
+  box-shadow: inset 4px 0 0 var(--mint);
+}
+
+.board .row.you.flag { box-shadow: inset 4px 0 0 var(--gold); }
+
+.board .gap {
+  text-align: center;
+  letter-spacing: 0.45em;
+  color: var(--muted);
+  padding: 2px 0;
+}
+
+@keyframes spawn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
 @media (max-width: 800px) {
   .chain.demo { overflow-x: auto; }
   .chain.demo .linkball, .linkball { width: 168px; height: 168px; flex-basis: 168px; }
@@ -696,5 +776,5 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clock.hot, .shake, .btn { animation: none; transition: none; }
+  .clock.hot, .shake, .btn, .board li, .call { animation: none; transition: none; }
 }
