@@ -9,3 +9,7 @@ espn-*.json
 scripts/peek-*.js
 data/player_stats.csv
 data/player_stats_def.csv
+data/stat-seasons/
+data/stats_player_reg_*.csv
+data/*-release.json
+data/nflverse-releases.json
