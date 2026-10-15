@@ -7,3 +7,5 @@ data/rosters-release.json
 data/career-cache.json
 espn-*.json
 scripts/peek-*.js
+data/player_stats.csv
+data/player_stats_def.csv

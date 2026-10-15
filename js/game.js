@@ -829,6 +829,7 @@
 
     app.innerHTML =
       '<main class="home wrap">' +
+      '<nav class="game-nav"><a href="index.html" class="on">Chain</a><a href="golf.html">Golf</a></nav>' +
       '<div class="brand"><div class="ball" aria-hidden="true"></div><div><p class="eyebrow">NFL × College</p></div></div>' +
       "<h1>CHAIN</h1>" +
       '<p class="lede">The open link is a full name. Say a number, a college, or an NFL team and that link appears. Once you move on, that player’s picture fills the circle.</p>' +

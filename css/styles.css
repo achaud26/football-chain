@@ -584,6 +584,106 @@ h1 {
   font-size: 12px;
 }
 
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+
+.game-nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.game-nav a {
+  text-decoration: none;
+  color: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.game-nav a.on {
+  background: var(--gold);
+  color: #241b04;
+  border-color: var(--gold);
+}
+
+.pin {
+  width: 48px;
+  height: 62px;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.pin::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--paper);
+}
+
+.pin::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 3px;
+  border-style: solid;
+  border-width: 13px 24px 13px 0;
+  border-color: transparent var(--gold) transparent transparent;
+}
+
+.target-num {
+  font-family: var(--display);
+  font-size: clamp(76px, 16vw, 128px);
+  line-height: 0.82;
+  color: var(--gold-2);
+  margin: 6px 0 0;
+}
+
+.hole-copy {
+  max-width: 560px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.45;
+  margin: 12px 0 0;
+}
+
+.scorecard {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.scorecard th,
+.scorecard td {
+  padding: 10px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.scorecard th:first-child,
+.scorecard td:first-child { text-align: left; }
+
+.scorecard .tot { color: var(--gold-2); }
+
+.miss { color: #ffd0c8; min-height: 1.2em; margin: 10px 0 0; }
+
+.reveal {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.reveal p { margin: 0; color: var(--muted); line-height: 1.4; }
+
+.reveal strong { color: var(--paper); }
+
+.ace { color: var(--mint); font-weight: 700; }
+
 @media (max-width: 800px) {
   .chain.demo { overflow-x: auto; }
   .chain.demo .linkball, .linkball { width: 168px; height: 168px; flex-basis: 168px; }
