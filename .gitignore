@@ -10,6 +10,8 @@ scripts/peek-*.js
 data/player_stats.csv
 data/player_stats_def.csv
 data/stat-seasons/
+data/pfr-seasons/
+data/pfr-*
 data/stats_player_reg_*.csv
 data/*-release.json
 data/nflverse-releases.json
