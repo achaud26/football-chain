@@ -27,6 +27,8 @@
     names: ["You"],
     holesCount: 3,
     side: "both",
+    daily: false,
+    dailyKey: "",
     holes: [],
     hole: 0,
     turn: 0,
@@ -81,10 +83,45 @@
     return ids.map((id) => categories.findIndex((category) => category.id === id)).filter((index) => index >= 0);
   }
 
-  function shuffle(list) {
+  function dateKey(date) {
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return date.getFullYear() + "-" + month + "-" + day;
+  }
+
+  function dateLabel(key) {
+    const parts = key.split("-").map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  function hashString(text) {
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function mulberry32(seed) {
+    let value = seed >>> 0;
+    return function () {
+      value = (value + 0x6d2b79f5) >>> 0;
+      let mixed = Math.imul(value ^ (value >>> 15), 1 | value);
+      mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+      return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function dailyRandom() {
+    return mulberry32(hashString("nfl-golf-daily:" + state.dailyKey));
+  }
+
+  function shuffle(list, random) {
+    const rng = random || Math.random;
     const copy = list.slice();
     for (let i = copy.length - 1; i > 0; i--) {
-      const swap = Math.floor(Math.random() * (i + 1));
+      const swap = Math.floor(rng() * (i + 1));
       const hold = copy[i];
       copy[i] = copy[swap];
       copy[swap] = hold;
@@ -112,22 +149,34 @@
     return players.filter((player) => norm(player.name) === key);
   }
 
-  function makeHoles() {
+  function makeHoles(random) {
+    const rng = random || Math.random;
     const pool = indexesFor(state.side);
     const bag = [];
-    while (bag.length < state.holesCount) bag.push(...shuffle(pool));
+    while (bag.length < state.holesCount) bag.push(...shuffle(pool, rng));
     const used = new Set();
     return bag.slice(0, state.holesCount).map((category) => {
       const depth = Math.min(boards[category].length, 120);
-      let target = 1 + Math.floor(Math.random() * depth);
+      let target = 1 + Math.floor(rng() * depth);
       let guard = 0;
       while (used.has(category + ":" + target) && guard < 30) {
-        target = 1 + Math.floor(Math.random() * depth);
+        target = 1 + Math.floor(rng() * depth);
         guard += 1;
       }
       used.add(category + ":" + target);
       return { category, target };
     });
+  }
+
+  function roundName() {
+    if (state.daily) return "Daily · " + dateLabel(state.dailyKey);
+    return sideName(state.side);
+  }
+
+  function scoreLine(totals) {
+    const when = dateLabel(state.dailyKey);
+    if (totals.length === 1) return "NFL Golf daily " + when + " · " + formatNum(totals[0]) + " strokes";
+    return "NFL Golf daily " + when + " · " + state.names[0] + " " + formatNum(totals[0]) + ", " + state.names[1] + " " + formatNum(totals[1]);
   }
 
   function freshCard() {
@@ -265,7 +314,8 @@
       courseHtml("idle") +
       '<p class="lede">Play 3, 6, 9, or 18 holes, on offense, defense, or both. Each hole is an all-time rank, like No. 84 in passing yards. Name the closest player. Five spots away is 5 strokes. Miss by more than 250 and it counts as 250. Lowest total wins.</p>' +
       '<div class="mode-row">' +
-      '<button class="btn primary" id="solo">Play a round</button>' +
+      '<button class="btn primary" id="daily">Today\'s course</button>' +
+      '<button class="btn" id="solo">Play a round</button>' +
       '<button class="btn" id="duel">Two players</button>' +
       "</div>" +
       '<section class="panel">' +
@@ -280,8 +330,45 @@
       esc(book.span) +
       " This is a fan game, not an official NFL product.</p>" +
       "</section></main>";
+    document.getElementById("daily").onclick = () => showDaily(false);
     document.getElementById("solo").onclick = () => showSetup("solo");
     document.getElementById("duel").onclick = () => showSetup("duel");
+  }
+
+  function showDaily(duel) {
+    state.daily = true;
+    state.dailyKey = dateKey(new Date());
+    state.holesCount = 3;
+    state.side = "both";
+    const label = dateLabel(state.dailyKey);
+    app.innerHTML =
+      '<main class="setup panel">' +
+      nav("golf") +
+      '<p class="eyebrow">Daily · ' + esc(label) + "</p>" +
+      '<h2 class="display" style="font-size:64px">TODAY</h2>' +
+      courseHtml("idle") +
+      '<p class="hole-copy">3 holes, both sides. Anyone playing on ' + esc(label) + " gets this same course.</p>" +
+      (duel
+        ? '<div class="name-row">' +
+          '<label class="field" style="flex:1"><span>Player 1</span><input id="n1" class="text-input" maxlength="18" value="Player 1"></label>' +
+          '<label class="field" style="flex:1"><span>Player 2</span><input id="n2" class="text-input" maxlength="18" value="Player 2"></label></div>' +
+          '<p class="hole-copy">You both play today\'s holes. Scores stay hidden until you have each taken the shot.</p>'
+        : "") +
+      '<div class="setup-actions"><button class="btn ghost" id="back">Back</button>' +
+      (duel ? "" : '<button class="btn" id="add-player">Two players</button>') +
+      '<button class="btn primary" id="start">' + (duel ? "Start today" : "Play solo") + "</button></div>" +
+      "</main>";
+    document.getElementById("back").onclick = showHome;
+    const add = document.getElementById("add-player");
+    if (add) add.onclick = () => showDaily(true);
+    document.getElementById("start").onclick = () => {
+      state.names = duel
+        ? [document.getElementById("n1").value.trim() || "Player 1", document.getElementById("n2").value.trim() || "Player 2"]
+        : ["You"];
+      state.holes = makeHoles(dailyRandom());
+      freshCard();
+      showHole();
+    };
   }
 
   function showSetup(mode) {
@@ -313,6 +400,7 @@
     });
     document.getElementById("back").onclick = showHome;
     document.getElementById("start").onclick = () => {
+      state.daily = false;
       state.holesCount = Number(document.querySelector("#round-length button.on").dataset.value);
       state.side = document.querySelector("#round-side button.on").dataset.value;
       state.names = duel
@@ -338,7 +426,7 @@
       nav("golf") +
       '<button class="btn ghost" id="menu">Menu</button>' +
       "</div>" +
-      '<p class="eyebrow">Hole ' + (state.hole + 1) + " of " + state.holes.length + " · " + esc(sideName(state.side)) + (state.names.length > 1 && guessing ? " · " + esc(state.names[seat]) : "") + "</p>" +
+      '<p class="eyebrow">Hole ' + (state.hole + 1) + " of " + state.holes.length + " · " + esc(roundName()) + (state.names.length > 1 && guessing ? " · " + esc(state.names[seat]) : "") + "</p>" +
       '<h2 class="display stat-title">' + esc(statName(hole.category)) + "</h2>" +
       '<p class="target-num">#' + hole.target + "</p>" +
       courseHtml(guessing ? "tee" : "shot") +
@@ -539,14 +627,36 @@
     app.innerHTML =
       '<main class="setup panel">' +
       nav("golf") +
-      '<p class="eyebrow">Round over · ' + esc(sideName(state.side)) + "</p>" +
+      '<p class="eyebrow">' + (state.daily ? esc(roundName()) : "Round over · " + esc(roundName())) + "</p>" +
       '<h2 class="display" style="font-size:clamp(48px,8vw,72px)">' + esc(headline) + "</h2>" +
       "<p>" + esc(detail) + "</p>" +
       cardHtml() +
-      '<div class="setup-actions"><button class="btn primary" id="again">Play another round</button><button class="btn ghost" id="menu">Menu</button></div>' +
+      (state.daily ? '<p class="score-line" id="score-line">' + esc(scoreLine(totals)) + "</p>" : "") +
+      '<div class="setup-actions">' +
+      (state.daily ? '<button class="btn" id="copy">Copy score</button>' : "") +
+      '<button class="btn primary" id="again">' + (state.daily ? "Play today again" : "Play another round") + "</button>" +
+      '<button class="btn ghost" id="menu">Menu</button></div>' +
       "</main>";
+    const copy = document.getElementById("copy");
+    if (copy) {
+      copy.onclick = async () => {
+        const line = scoreLine(totals);
+        try {
+          await navigator.clipboard.writeText(line);
+          copy.textContent = "Copied";
+        } catch (error) {
+          const field = document.getElementById("score-line");
+          const range = document.createRange();
+          range.selectNodeContents(field);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          copy.textContent = "Select the score";
+        }
+      };
+    }
     document.getElementById("again").onclick = () => {
-      state.holes = makeHoles();
+      state.holes = state.daily ? makeHoles(dailyRandom()) : makeHoles();
       freshCard();
       showHole();
     };

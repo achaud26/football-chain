@@ -378,7 +378,8 @@
       const pool = moves.filter((move) => move.type === "player");
       const ranked = pool.slice().sort((a, b) => fameOf(a) - fameOf(b));
       if (state.difficulty === "hard") {
-        const tail = ranked.slice(Math.floor(ranked.length * 0.55));
+        const rare = ranked.filter((move) => fameOf(move) >= 160);
+        const tail = rare.length ? rare : ranked.slice(Math.floor(ranked.length * 0.8));
         const pickFrom = tail.length ? tail : ranked;
         return pickFrom[Math.floor(Math.random() * pickFrom.length)];
       }
@@ -397,7 +398,8 @@
     const alive = scored.filter((item) => item.best < 999);
     const use = (alive.length ? alive : scored).slice().sort((a, b) => a.best - b.best);
     if (state.difficulty === "hard") {
-      const tail = use.slice(Math.floor(use.length * 0.55));
+      const rare = use.filter((item) => item.best >= 160);
+      const tail = rare.length ? rare : use.slice(Math.floor(use.length * 0.8));
       const pickFrom = tail.length ? tail : use;
       return pickFrom[Math.floor(Math.random() * pickFrom.length)].move;
     }
@@ -609,40 +611,51 @@
   }
 
 
-  function nodeHtml(node, now, passed) {
+  function nodeHtml(node, now, passed, reveal) {
+    const classes = ["linkball"];
+    if (now) classes.push("now", "lock");
+    if (reveal) classes.push("reveal");
     if (node.type === "number") {
+      classes.push("numeral");
       const digits = String(node.value);
-      return '<article class="linkball numeral' + (now ? " now" : "") + '"><p class="digits' + (digits.length > 1 ? " tens" : "") + '">' + esc(digits) + "</p></article>";
+      return '<article class="' + classes.join(" ") + '"><p class="digits' + (digits.length > 1 ? " tens" : "") + '">' + esc(digits) + "</p></article>";
     }
     if (node.type === "college") {
+      classes.push("club");
       const logo = collegeLogos.get(node.name) || "";
       return (
-        '<article class="linkball club' + (now ? " now" : "") + '">' +
+        '<article class="' + classes.join(" ") + '">' +
         (logo ? '<img class="crest" alt="" src="' + esc(logo) + '">' : nameBlock(node.name)) +
         "</article>"
       );
     }
     if (node.type === "team") {
+      classes.push("club");
       const info = NFL[node.id];
-      return '<article class="linkball club' + (now ? " now" : "") + '"><img class="crest" alt="" src="' + esc(info.logo) + '"></article>';
+      return '<article class="' + classes.join(" ") + '"><img class="crest" alt="" src="' + esc(info.logo) + '"></article>';
     }
     const player = byId.get(node.id);
     if (passed && player.image) {
+      classes.push("photo");
       return (
-        '<article class="linkball photo' + (now ? " now" : "") + '">' +
+        '<article class="' + classes.join(" ") + '">' +
         '<img class="mug" alt="" src="' + esc(player.image) + '" data-fallback="' + esc(player.fallback || "") + '">' +
         captionBlock(player.name) + "</article>"
       );
     }
-    return '<article class="linkball name' + (now ? " now" : "") + '">' + nameBlock(player.name) + "</article>";
+    classes.push("name");
+    return '<article class="' + classes.join(" ") + '">' + nameBlock(player.name) + "</article>";
   }
 
   function chainHtml(nodes, markNow) {
+    const animate = markNow !== false;
     return nodes
       .map((node, index) => {
-        const now = markNow !== false && index === nodes.length - 1;
+        const now = animate && index === nodes.length - 1;
         const passed = node.type === "player" && index < nodes.length - 1;
-        return (index ? '<div class="join" aria-hidden="true"></div>' : "") + nodeHtml(node, now, passed);
+        const reveal = animate && passed && index === nodes.length - 2;
+        const join = index ? '<div class="join' + (now ? " lock" : "") + '" aria-hidden="true"></div>' : "";
+        return join + nodeHtml(node, now, passed, reveal);
       })
       .join("");
   }
@@ -842,7 +855,7 @@
       "<li><strong>01 · Name</strong><p>The open link is a full name. The coach might also start you on a number or a college, so you have to find the player.</p></li>" +
       "<li><strong>02 · Link</strong><p>Say a number, any college he played at, or any NFL team, past or present. Mahomes can go to 15, Texas Tech, or the Chiefs.</p></li>" +
       "<li><strong>03 · Next name</strong><p>From 15, someone else who wore it. From Florida, a Gator. From the Chiefs, a teammate. Gibbs counts as both 26 and 0.</p></li>" +
-      "<li><strong>04 · How you play</strong><p>Solo, chase a long chain. Hard just brings obscure players. Two players is first to 3, and a wrong answer ends the round.</p></li>" +
+      "<li><strong>04 · How you play</strong><p>Solo, chase a long chain. Difficult hands you obscure players and the links that lead to them. Two players is first to 3, and a wrong answer ends the round.</p></li>" +
       "</ol>" +
       '<p class="example-label">Patrick Mahomes, then 15. Tim Tebow, then Florida. Anthony Richardson is next.</p>' +
       '<div class="chain demo" id="demo">' + chainHtml(demo, false) + "</div>" +
@@ -869,8 +882,8 @@
       (solo
         ? '<div class="field"><span>Coach</span><div class="choices" id="diff">' +
           '<button type="button" data-diff="normal" class="on">Normal</button>' +
-          '<button type="button" data-diff="hard">Hard</button></div>' +
-          '<p class="fine" style="margin-top:8px">Normal keeps famous players in the chain. Hard hands you obscure ones. The counter is how long you last.</p></div>'
+          '<button type="button" data-diff="hard">Difficult</button></div>' +
+          '<p class="fine" style="margin-top:8px">Normal stays with names you know. Difficult hands you obscure players, and numbers, colleges, and teams that lead to them.</p></div>'
         : "") +
       '<div class="field"><span>Shot clock</span><div class="choices" id="clock-choice">' +
       [20, 30, 45, 0]
@@ -928,7 +941,7 @@
     const ranked = players.slice().sort((a, b) => a.fame - b.fame);
     let pool;
     if (state.mode === "solo" && state.difficulty === "hard") {
-      pool = ranked.filter((player) => player.fame >= 90);
+      pool = ranked.filter((player) => player.fame >= 160);
       if (pool.length < 8) pool = ranked.slice(Math.floor(ranked.length / 2));
     } else {
       pool = ranked.filter((player) => player.fame <= 40);
@@ -952,7 +965,7 @@
     const ranked = options.slice().sort((a, b) => linkFame(a) - linkFame(b));
     let pool;
     if (state.difficulty === "hard") {
-      pool = ranked.filter((move) => linkFame(move) >= 70);
+      pool = ranked.filter((move) => linkFame(move) >= 140);
       if (pool.length < 4) pool = ranked.slice(Math.floor(ranked.length / 2));
     } else {
       pool = ranked.filter((move) => linkFame(move) <= 45);
@@ -1008,7 +1021,7 @@
       "</form>" +
       '<p class="fine">' +
       (state.mode === "solo"
-        ? "Keep the chain going. A wrong answer ends it. No repeated players, numbers, colleges, or teams."
+        ? (state.difficulty === "hard" ? "Difficult. " : "") + "Keep the chain going. A wrong answer ends it. No repeated players, numbers, colleges, or teams."
         : "Round " + state.round + " · first to " + state.target + " · a wrong answer ends the round.") +
       "</p>" +
       "</main>";
@@ -1210,6 +1223,25 @@
     finishRound(1 - state.turn, "There was still a link on the board.", hintMoves(moves));
   }
 
+  function dropLastLink() {
+    const chain = document.getElementById("chain");
+    if (!chain) return;
+    chain.classList.add("broken");
+    const balls = chain.querySelectorAll(".linkball");
+    const last = balls[balls.length - 1];
+    if (last) last.classList.add("drop");
+    const joins = chain.querySelectorAll(".join");
+    const join = joins[joins.length - 1];
+    if (join) join.classList.add("snap");
+  }
+
+  function afterBreak(then) {
+    dropLastLink();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) then();
+    else setTimeout(then, 520);
+  }
+
   function finishChain(reason, reveals) {
     if (state.overlay) return;
     stopClock();
@@ -1220,6 +1252,7 @@
     const revealHtml = reveals && reveals.length
       ? '<p>Still open:</p><ul class="reveals">' + reveals.map((move) => "<li>" + esc(label(move)) + "</li>").join("") + "</ul>"
       : "";
+    afterBreak(() => {
     const overlay = document.createElement("div");
     overlay.className = "overlay";
     overlay.id = "overlay";
@@ -1241,6 +1274,7 @@
       startRound();
     };
     document.getElementById("again").focus();
+    });
   }
 
   function finishRound(winner, reason, reveals) {
@@ -1256,6 +1290,7 @@
     const revealHtml = reveals.length
       ? '<p>Still open:</p><ul class="reveals">' + reveals.map((move) => "<li>" + esc(label(move)) + "</li>").join("") + "</ul>"
       : "";
+    afterBreak(() => {
     const overlay = document.createElement("div");
     overlay.className = "overlay";
     overlay.id = "overlay";
@@ -1296,6 +1331,7 @@
       };
       document.getElementById("next").focus();
     }
+    });
   }
 
   showHome();

@@ -263,6 +263,44 @@ h1 {
   transform: translateY(-4px);
 }
 
+.linkball.lock {
+  animation: lock-in 0.48s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.linkball.lock::after,
+.linkball.photo.reveal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 32%, #2f8a58, #0c1c16 72%);
+  animation: jersey-fill 0.62s ease forwards;
+  pointer-events: none;
+}
+
+.linkball.photo.reveal .mug {
+  animation: mug-in 0.7s ease both;
+}
+
+.linkball.photo .caption { z-index: 2; }
+
+.join.lock {
+  transform-origin: left center;
+  animation: join-lock 0.34s ease both;
+}
+
+.chain.broken { overflow: visible; }
+
+.linkball.drop {
+  z-index: 3;
+  animation: drop-link 0.62s cubic-bezier(0.4, 0, 0.8, 1) forwards;
+}
+
+.join.snap {
+  transform-origin: left center;
+  animation: snap-join 0.28s ease forwards;
+}
+
 .linkball.name { background: radial-gradient(circle at 50% 32%, #245c40, #0c1c16 72%); }
 
 .linkball.numeral { background: radial-gradient(circle at 50% 32%, #245c40, #0c1c16 72%); }
@@ -942,6 +980,12 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   animation: banner 0.45s ease 1.35s forwards;
 }
 
+.score-line {
+  margin: 16px 0 0;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .scorecard-wrap { overflow-x: auto; }
 
 .scorecard.long th,
@@ -1000,6 +1044,37 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   to { opacity: 1; transform: none; }
 }
 
+@keyframes lock-in {
+  0% { transform: translate(42px, 22px) scale(0.7) rotate(8deg); opacity: 0; }
+  58% { transform: translate(-8px, -12px) scale(1.06) rotate(-2deg); opacity: 1; }
+  100% { transform: translateY(-4px) scale(1); opacity: 1; }
+}
+
+@keyframes jersey-fill {
+  0% { opacity: 0.92; }
+  100% { opacity: 0; }
+}
+
+@keyframes mug-in {
+  from { opacity: 0; transform: scale(1.06); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes join-lock {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes drop-link {
+  0% { transform: translateY(-4px) rotate(0deg); opacity: 1; }
+  18% { transform: translateY(-14px) rotate(-8deg); opacity: 1; }
+  100% { transform: translateY(120px) rotate(26deg); opacity: 0; }
+}
+
+@keyframes snap-join {
+  to { transform: scaleX(0.2) rotate(14deg); opacity: 0; }
+}
+
 @media (max-width: 800px) {
   .chain.demo { overflow-x: auto; }
   .chain.demo .linkball, .linkball { width: 168px; height: 168px; flex-basis: 168px; }
@@ -1013,10 +1088,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .clock.hot, .shake, .btn, .board li, .call,
-  .course .sky i, .course .flag i, .course .club, .gball, .gball b, .ace-banner {
+  .course .sky i, .course .flag i, .course .club, .gball, .gball b, .ace-banner,
+  .linkball.lock, .linkball.lock::after, .linkball.photo.reveal .mug, .linkball.photo.reveal::after,
+  .join.lock, .linkball.drop, .join.snap {
     animation: none;
     transition: none;
   }
+  .linkball.drop { opacity: 1; transform: translateY(-4px); }
   .course.played .gball.fair,
   .course.played .gball.ace { left: var(--land); bottom: 58px; }
   .course.played .gball.wide { left: 20%; bottom: 16px; }
