@@ -759,6 +759,242 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   padding: 2px 0;
 }
 
+.course {
+  position: relative;
+  height: 220px;
+  margin: 16px 0 8px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #8ecae6 0%, #d7f3ff 36%, #8ecae6 42%, transparent 42%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 30px rgba(0, 0, 0, 0.28);
+}
+
+.course .sky i {
+  position: absolute;
+  height: 16px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  animation: drift 22s linear infinite;
+}
+
+.course .sky i:first-child { width: 74px; top: 22px; left: -90px; }
+.course .sky i:last-child { width: 42px; top: 52px; left: -50px; animation-duration: 30s; animation-delay: -10s; }
+
+.course .grass {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 58%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 16px, transparent 16px 34px),
+    linear-gradient(#1b4332, #081c15);
+}
+
+.course .fairway {
+  position: absolute;
+  left: 4%;
+  right: 6%;
+  bottom: 34px;
+  height: 58px;
+  border-radius: 40px 90px 28px 36px;
+  background: linear-gradient(#74c69d, #2d6a4f);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12);
+}
+
+.course .bunker {
+  position: absolute;
+  left: 46%;
+  bottom: 22px;
+  width: 54px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #f3e5c0, #c9ae78);
+  transform: rotate(-12deg);
+}
+
+.course .green {
+  position: absolute;
+  right: 7%;
+  bottom: 42px;
+  width: 108px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #b7e4c7, #40916c 72%);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.15);
+}
+
+.course .green b {
+  position: absolute;
+  left: 46%;
+  top: 42%;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #102018;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+.course .flag {
+  position: absolute;
+  right: 15%;
+  bottom: 86px;
+  width: 3px;
+  height: 58px;
+  background: var(--paper);
+  border-radius: 2px;
+}
+
+.course .flag i {
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  border-style: solid;
+  border-width: 11px 22px 11px 0;
+  border-color: transparent var(--gold) transparent transparent;
+  transform-origin: left center;
+  animation: wave 1.15s ease-in-out infinite;
+}
+
+.course .golfer {
+  position: absolute;
+  left: 9%;
+  bottom: 46px;
+  width: 7px;
+  height: 34px;
+  border-radius: 6px;
+  background: var(--paper);
+}
+
+.course .club {
+  position: absolute;
+  left: 3px;
+  bottom: 0;
+  width: 3px;
+  height: 46px;
+  border-radius: 2px;
+  background: #d9d0c0;
+  transform-origin: bottom center;
+  transform: rotate(-72deg);
+}
+
+.course.played .club { animation: swing 0.42s ease-in forwards; }
+
+.gball {
+  position: absolute;
+  left: 11%;
+  bottom: 52px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 32%, #fff 0 28%, transparent 29%),
+    radial-gradient(circle at 35% 35%, #fff, #ddd6c8 58%, #b7ad9b);
+  box-shadow: 0 7px 0 rgba(0, 0, 0, 0.28);
+  z-index: 2;
+}
+
+.gball b {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  background: var(--gold);
+  color: #241b04;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0;
+}
+
+.course.played .gball.fair,
+.course.played .gball.ace {
+  animation: drive 1.05s cubic-bezier(0.18, 0.7, 0.28, 1) 0.32s forwards;
+}
+
+.course.played .gball.wide {
+  animation: shank 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) 0.32s forwards;
+}
+
+.course.played .gball.ace {
+  animation: drive 1.05s cubic-bezier(0.18, 0.7, 0.28, 1) 0.32s forwards, sink 0.35s ease 1.45s forwards;
+}
+
+.course.played .gball.lag { animation-delay: 0.55s; }
+.course.played .gball.lag.ace { animation-delay: 0.55s, 1.7s; }
+
+.course.played .gball b { animation: pop 0.3s ease 1.4s forwards; }
+.course.played .gball.lag b { animation-delay: 1.7s; }
+
+.ace-banner {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  margin: 0;
+  transform: translateX(-50%) scale(0.8);
+  font-family: var(--display);
+  font-size: 32px;
+  letter-spacing: 0.04em;
+  color: var(--gold-2);
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  animation: banner 0.45s ease 1.35s forwards;
+}
+
+.scorecard-wrap { overflow-x: auto; }
+
+.scorecard.long th,
+.scorecard.long td {
+  padding: 8px 5px;
+  font-size: 13px;
+}
+
+.scorecard td.now {
+  color: var(--gold-2);
+  font-weight: 800;
+}
+
+.scorecard td.sub { color: var(--mint); }
+
+@keyframes drift {
+  to { transform: translateX(140vw); }
+}
+
+@keyframes wave {
+  50% { transform: skewX(-8deg) scaleX(0.9); }
+}
+
+@keyframes swing {
+  0% { transform: rotate(-72deg); }
+  70% { transform: rotate(24deg); }
+  100% { transform: rotate(8deg); }
+}
+
+@keyframes drive {
+  0% { left: 11%; bottom: 52px; }
+  42% { bottom: 158px; }
+  100% { left: var(--land); bottom: 58px; }
+}
+
+@keyframes shank {
+  0% { left: 11%; bottom: 52px; }
+  40% { left: 30%; bottom: 120px; }
+  100% { left: 20%; bottom: 16px; }
+}
+
+@keyframes sink {
+  to { transform: scale(0.2); opacity: 0; }
+}
+
+@keyframes pop {
+  to { opacity: 1; }
+}
+
+@keyframes banner {
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
 @keyframes spawn {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: none; }
@@ -776,5 +1012,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clock.hot, .shake, .btn, .board li, .call { animation: none; transition: none; }
+  .clock.hot, .shake, .btn, .board li, .call,
+  .course .sky i, .course .flag i, .course .club, .gball, .gball b, .ace-banner {
+    animation: none;
+    transition: none;
+  }
+  .course.played .gball.fair,
+  .course.played .gball.ace { left: var(--land); bottom: 58px; }
+  .course.played .gball.wide { left: 20%; bottom: 16px; }
+  .course.played .gball b, .ace-banner { opacity: 1; }
 }

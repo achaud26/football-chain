@@ -3,6 +3,9 @@
   const app = document.getElementById("app");
   const players = book.players;
   const categories = book.categories;
+  const STROKE_CAP = 250;
+  const OFFENSE_IDS = ["pass_yds", "pass_td", "int_thrown", "rush_yds", "rush_td", "rec", "rec_yds", "rec_td"];
+  const DEFENSE_IDS = ["sacks", "int_caught"];
   const boards = categories.map((_, index) =>
     players
       .filter((player) => player.stats[index] > 0)
@@ -22,6 +25,8 @@
     screen: "home",
     mode: "solo",
     names: ["You"],
+    holesCount: 3,
+    side: "both",
     holes: [],
     hole: 0,
     turn: 0,
@@ -65,6 +70,28 @@
     return player.pos + " · " + player.first + "–" + player.last;
   }
 
+  function sideName(side) {
+    if (side === "defense") return "Defense";
+    if (side === "offense") return "Offense";
+    return "Both sides";
+  }
+
+  function indexesFor(side) {
+    const ids = side === "defense" ? DEFENSE_IDS : side === "offense" ? OFFENSE_IDS : categories.map((category) => category.id);
+    return ids.map((id) => categories.findIndex((category) => category.id === id)).filter((index) => index >= 0);
+  }
+
+  function shuffle(list) {
+    const copy = list.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const swap = Math.floor(Math.random() * (i + 1));
+      const hold = copy[i];
+      copy[i] = copy[swap];
+      copy[swap] = hold;
+    }
+    return copy;
+  }
+
   function suggestions(query) {
     const key = norm(query);
     if (key.length < 2) return [];
@@ -86,22 +113,53 @@
   }
 
   function makeHoles() {
-    const order = categories.map((_, index) => index);
-    for (let i = order.length - 1; i > 0; i--) {
-      const swap = Math.floor(Math.random() * (i + 1));
-      const hold = order[i];
-      order[i] = order[swap];
-      order[swap] = hold;
-    }
-    return order.slice(0, 3).map((category) => {
+    const pool = indexesFor(state.side);
+    const bag = [];
+    while (bag.length < state.holesCount) bag.push(...shuffle(pool));
+    const used = new Set();
+    return bag.slice(0, state.holesCount).map((category) => {
       const depth = Math.min(boards[category].length, 120);
-      const target = 1 + Math.floor(Math.random() * depth);
+      let target = 1 + Math.floor(Math.random() * depth);
+      let guard = 0;
+      while (used.has(category + ":" + target) && guard < 30) {
+        target = 1 + Math.floor(Math.random() * depth);
+        guard += 1;
+      }
+      used.add(category + ":" + target);
       return { category, target };
     });
   }
 
+  function freshCard() {
+    state.shots = state.names.map(() => Array(state.holesCount).fill(null));
+    state.hole = 0;
+    state.turn = 0;
+    state.phase = "guess";
+    state.query = "";
+    state.error = "";
+  }
+
   function total(row) {
     return row.reduce((sum, shot) => sum + (shot ? shot.strokes : 0), 0);
+  }
+
+  function visibleShot(seat, index) {
+    const shot = state.shots[seat][index];
+    if (!shot) return null;
+    if (state.phase === "guess" && index === state.hole) return null;
+    return shot;
+  }
+
+  function sumRange(seat, from, to) {
+    let sum = 0;
+    let any = false;
+    for (let index = from; index < to; index++) {
+      const shot = visibleShot(seat, index);
+      if (!shot) continue;
+      sum += shot.strokes;
+      any = true;
+    }
+    return any ? formatNum(sum) : "–";
   }
 
   function nav(page) {
@@ -114,24 +172,87 @@
     );
   }
 
+  function courseHtml(mode) {
+    const played = mode === "shot";
+    const shots = played
+      ? state.names.map((name, seat) => ({ name, shot: state.shots[seat][state.hole] })).filter((item) => item.shot)
+      : [];
+    const ace = shots.some((item) => item.shot.strokes === 0);
+    const balls = played
+      ? shots
+          .map((item, index) => {
+            const wide = item.shot.capped;
+            const land = wide ? 18 : item.shot.strokes === 0 ? 82 : Math.round(Math.max(18, 82 - (item.shot.strokes / STROKE_CAP) * 64));
+            const mark = item.shot.strokes === 0 ? "1" : formatNum(item.shot.strokes);
+            return (
+              '<div class="gball ' + (wide ? "wide" : item.shot.strokes === 0 ? "ace" : "fair") + (index ? " lag" : "") + '" style="--land:' + land + '%"><b>' + mark + "</b></div>"
+            );
+          })
+          .join("")
+      : '<div class="gball"></div>';
+    return (
+      '<div class="course' + (played ? " played" : "") + (ace ? " hole-ace" : "") + '" aria-hidden="true">' +
+      '<div class="sky"><i></i><i></i></div>' +
+      '<div class="grass"></div>' +
+      '<div class="fairway"></div>' +
+      '<div class="bunker"></div>' +
+      '<div class="green"><b></b></div>' +
+      '<div class="flag"><i></i></div>' +
+      '<div class="golfer"><span class="club"></span></div>' +
+      balls +
+      (ace ? '<p class="ace-banner">Hole in one</p>' : "") +
+      "</div>"
+    );
+  }
+
   function cardHtml() {
-    const headers = ["", "1", "2", "3", "Tot"];
+    const count = state.holes.length || state.holesCount;
+    const nines = count === 18;
+    const keys = [];
+    const labels = [];
+    for (let index = 0; index < count; index++) {
+      if (nines && index === 9) {
+        labels.push("Out");
+        keys.push("out");
+      }
+      labels.push(String(index + 1));
+      keys.push(index);
+    }
+    if (nines) {
+      labels.push("In");
+      keys.push("in");
+    }
+    labels.push("Tot");
+    keys.push("tot");
     const rows = state.names.map((name, seat) => {
-      const cells = [0, 1, 2].map((index) => {
-        const shot = state.shots[seat][index];
-        const pending = shot && state.phase === "guess" && index === state.hole;
-        const current = !shot && state.phase !== "card" && index === state.hole;
-        return "<td>" + (pending ? "✓" : shot ? formatNum(shot.strokes) : current ? "•" : "–") + "</td>";
+      const cells = keys.map((key) => {
+        if (key === "out") return '<td class="sub">' + sumRange(seat, 0, 9) + "</td>";
+        if (key === "in") return '<td class="sub">' + sumRange(seat, 9, 18) + "</td>";
+        if (key === "tot") return '<td class="tot">' + sumRange(seat, 0, count) + "</td>";
+        const shot = state.shots[seat] && state.shots[seat][key];
+        const shown = visibleShot(seat, key);
+        const pending = shot && !shown;
+        const current = state.phase !== "card" && key === state.hole;
+        return "<td" + (current ? ' class="now"' : "") + ">" + (pending ? "✓" : shown ? formatNum(shown.strokes) : current ? "•" : "–") + "</td>";
       });
-      const done = state.shots[seat].filter(Boolean).length === 3;
-      return "<tr><th>" + esc(name) + "</th>" + cells.join("") + '<td class="tot">' + (done ? formatNum(total(state.shots[seat])) : "–") + "</td></tr>";
+      return "<tr><th>" + esc(name) + "</th>" + cells.join("") + "</tr>";
     });
     return (
-      '<table class="scorecard"><thead><tr>' +
-      headers.map((label) => "<th>" + label + "</th>").join("") +
+      '<div class="scorecard-wrap"><table class="scorecard' + (count > 6 ? " long" : "") + '"><thead><tr><th></th>' +
+      labels.map((label) => "<th>" + label + "</th>").join("") +
       "</tr></thead><tbody>" +
       rows.join("") +
-      "</tbody></table>"
+      "</tbody></table></div>"
+    );
+  }
+
+  function choiceRow(id, label, options, current) {
+    return (
+      '<div class="field"><span>' + label + '</span><div class="choices" id="' + id + '">' +
+      options
+        .map(([value, text]) => '<button type="button" data-value="' + value + '"' + (String(value) === String(current) ? ' class="on"' : "") + ">" + text + "</button>")
+        .join("") +
+      "</div></div>"
     );
   }
 
@@ -140,18 +261,18 @@
     app.innerHTML =
       '<main class="home wrap">' +
       nav("golf") +
-      '<div class="pin" aria-hidden="true"></div>' +
       "<h1>GOLF</h1>" +
-      '<p class="lede">Three holes. Each one is an all-time list and a rank, like No. 84 in passing yards. Name the player closest to that spot. If yours is No. 79, that is 5 strokes. Lowest total wins.</p>' +
+      courseHtml("idle") +
+      '<p class="lede">Play 3, 6, 9, or 18 holes, on offense, defense, or both. Each hole is an all-time rank, like No. 84 in passing yards. Name the closest player. Five spots away is 5 strokes. Miss by more than 250 and it counts as 250. Lowest total wins.</p>' +
       '<div class="mode-row">' +
       '<button class="btn primary" id="solo">Play a round</button>' +
       '<button class="btn" id="duel">Two players</button>' +
       "</div>" +
       '<section class="panel">' +
-      "<ol class=\"steps\">" +
-      "<li><strong>01 · The hole</strong><p>You get a stat and a rank. No. 84 means the 84th player all time in that category.</p></li>" +
-      "<li><strong>02 · The shot</strong><p>Name who you think is closest. Five spots away costs 5 strokes. The exact player is 0.</p></li>" +
-      "<li><strong>03 · The list</strong><p>Your rank appears, then the real answer and the names around him, the shots that would have stayed close.</p></li>" +
+      '<ol class="steps">' +
+      "<li><strong>01 · The tee</strong><p>Pick the round length and a side. Offense is passing, rushing, and receiving. Defense is sacks and interceptions.</p></li>" +
+      "<li><strong>02 · The shot</strong><p>Name who you think is closest to that rank. The exact player is a hole in one.</p></li>" +
+      "<li><strong>03 · The ball</strong><p>It flies toward the pin. Closer ranks land nearer the cup. Anything past 250 stops at 250.</p></li>" +
       "</ol>" +
       '<p class="fine">' +
       players.length +
@@ -171,26 +292,34 @@
       nav("golf") +
       '<p class="eyebrow">' + (duel ? "Two players" : "Solo") + "</p>" +
       '<h2 class="display" style="font-size:64px">TEE OFF</h2>' +
+      courseHtml("idle") +
       (duel
         ? '<div class="name-row">' +
-          '<label class="field" style="flex:1"><span>Player 1</span><input id="n1" class="text-input" maxlength="18" value="Player 1"></label>' +
-          '<label class="field" style="flex:1"><span>Player 2</span><input id="n2" class="text-input" maxlength="18" value="Player 2"></label></div>' +
-          '<p class="hole-copy">You both play the same three holes. Scores stay hidden until you have each taken the shot.</p>'
-        : '<p class="hole-copy">Name the player at that rank. Zero strokes is a hole in one.</p>') +
+          '<label class="field" style="flex:1"><span>Player 1</span><input id="n1" class="text-input" maxlength="18" value="' + esc(state.names[0] && state.names[0] !== "You" ? state.names[0] : "Player 1") + '"></label>' +
+          '<label class="field" style="flex:1"><span>Player 2</span><input id="n2" class="text-input" maxlength="18" value="' + esc(state.names[1] || "Player 2") + '"></label></div>' +
+          '<p class="hole-copy">You both play the same holes. Scores stay hidden until you have each taken the shot.</p>'
+        : '<p class="hole-copy">Name the player at that rank. Zero strokes is a hole in one. A miss past 250 counts as 250.</p>') +
+      choiceRow("round-length", "Holes", [[3, "3"], [6, "6"], [9, "9"], [18, "18"]], state.holesCount) +
+      choiceRow("round-side", "Side", [["both", "Both"], ["offense", "Offense"], ["defense", "Defense"]], state.side) +
+      '<p class="hole-copy">Offense is passing, rushing, and receiving. Defense is sacks and interceptions.</p>' +
       '<div class="setup-actions"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="start">Start the round</button></div>' +
       "</main>";
+    document.querySelectorAll(".choices").forEach((group) => {
+      group.onclick = (event) => {
+        const button = event.target.closest("button");
+        if (!button) return;
+        group.querySelectorAll("button").forEach((item) => item.classList.toggle("on", item === button));
+      };
+    });
     document.getElementById("back").onclick = showHome;
     document.getElementById("start").onclick = () => {
+      state.holesCount = Number(document.querySelector("#round-length button.on").dataset.value);
+      state.side = document.querySelector("#round-side button.on").dataset.value;
       state.names = duel
         ? [document.getElementById("n1").value.trim() || "Player 1", document.getElementById("n2").value.trim() || "Player 2"]
         : ["You"];
       state.holes = makeHoles();
-      state.shots = state.names.map(() => [null, null, null]);
-      state.hole = 0;
-      state.turn = 0;
-      state.phase = "guess";
-      state.query = "";
-      state.error = "";
+      freshCard();
       showHole();
     };
   }
@@ -209,10 +338,11 @@
       nav("golf") +
       '<button class="btn ghost" id="menu">Menu</button>' +
       "</div>" +
-      '<p class="eyebrow">Hole ' + (state.hole + 1) + " of 3" + (state.names.length > 1 && guessing ? " · " + esc(state.names[seat]) : "") + "</p>" +
-      "<h2 class=\"display stat-title\">" + esc(statName(hole.category)) + "</h2>" +
+      '<p class="eyebrow">Hole ' + (state.hole + 1) + " of " + state.holes.length + " · " + esc(sideName(state.side)) + (state.names.length > 1 && guessing ? " · " + esc(state.names[seat]) : "") + "</p>" +
+      '<h2 class="display stat-title">' + esc(statName(hole.category)) + "</h2>" +
       '<p class="target-num">#' + hole.target + "</p>" +
-      '<p class="hole-copy">Name the player closest to No. ' + hole.target + " all time. The gap between ranks is your strokes.</p>" +
+      courseHtml(guessing ? "tee" : "shot") +
+      '<p class="hole-copy">Name the player closest to No. ' + hole.target + " all time. The gap in ranks is your strokes, and 250 is the most a hole can cost.</p>" +
       (guessing
         ? '<form class="play-row" id="shot">' +
           '<div class="search"><input id="guess" autocomplete="off" placeholder="Player name" value="' + esc(state.query) + '">' +
@@ -298,7 +428,15 @@
       if (miss) miss.textContent = state.error;
       return;
     }
-    const shot = { id: player.id, name: player.name, rank: row.rank, value: row.value, strokes: Math.abs(row.rank - hole.target) };
+    const gap = Math.abs(row.rank - hole.target);
+    const shot = {
+      id: player.id,
+      name: player.name,
+      rank: row.rank,
+      value: row.value,
+      strokes: Math.min(STROKE_CAP, gap),
+      capped: gap > STROKE_CAP,
+    };
     const seat = state.names.length === 1 ? 0 : state.turn;
     state.shots[seat][state.hole] = shot;
     state.query = "";
@@ -331,9 +469,10 @@
         if (item.shot.strokes === 0) {
           return '<p class="call ace">' + label + "<strong>" + esc(item.shot.name) + "</strong> is No. " + item.shot.rank + ". Hole in one.</p>";
         }
+        const maxNote = item.shot.capped ? ", the max" : "";
         return (
           '<p class="call">' + label + "<strong>" + esc(item.shot.name) + "</strong> is No. " +
-          formatNum(item.shot.rank) + ". <strong>" + formatNum(item.shot.strokes) + " strokes.</strong></p>"
+          formatNum(item.shot.rank) + ". <strong>" + formatNum(item.shot.strokes) + " strokes" + maxNote + ".</strong></p>"
         );
       })
       .join("");
@@ -362,7 +501,7 @@
       delay += 65;
       return gap + html;
     });
-    const last = state.hole === 2;
+    const last = state.hole === state.holes.length - 1;
     return (
       '<div class="reveal">' + chips +
       '<p class="board-label">Around No. ' + hole.target + "</p>" +
@@ -372,7 +511,7 @@
   }
 
   function advance() {
-    if (state.hole < 2) {
+    if (state.hole < state.holes.length - 1) {
       state.hole += 1;
       state.turn = 0;
       state.phase = "guess";
@@ -386,7 +525,7 @@
     state.phase = "card";
     const totals = state.names.map((_, seat) => total(state.shots[seat]));
     let headline = formatNum(totals[0]) + " STROKES";
-    let detail = "Add the three gaps. Lower is better.";
+    let detail = state.holes.length + " holes. Lower is better.";
     if (totals.length === 2) {
       if (totals[0] === totals[1]) {
         headline = "ALL SQUARE";
@@ -400,7 +539,7 @@
     app.innerHTML =
       '<main class="setup panel">' +
       nav("golf") +
-      '<p class="eyebrow">Round over</p>' +
+      '<p class="eyebrow">Round over · ' + esc(sideName(state.side)) + "</p>" +
       '<h2 class="display" style="font-size:clamp(48px,8vw,72px)">' + esc(headline) + "</h2>" +
       "<p>" + esc(detail) + "</p>" +
       cardHtml() +
@@ -408,10 +547,7 @@
       "</main>";
     document.getElementById("again").onclick = () => {
       state.holes = makeHoles();
-      state.shots = state.names.map(() => [null, null, null]);
-      state.hole = 0;
-      state.turn = 0;
-      state.phase = "guess";
+      freshCard();
       showHole();
     };
     document.getElementById("menu").onclick = showHome;
